@@ -1,14 +1,16 @@
-# Import libraries
+# import libraries
 import pandas as pd
 from dateutil.relativedelta import relativedelta
 import itertools
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 
+
 def get_hierarchy_labels(data, grp1, grp2, sep='_', agg_type='hierarchy'):
     """
     Get the labels of each category and subcategory (including the total).
     Called in the first line of `get_hierarchal()`
+    ----------
     Parameters
     ----------
     data : pandas dataframe with a date column, two hierarchies, and a value
@@ -19,20 +21,26 @@ def get_hierarchy_labels(data, grp1, grp2, sep='_', agg_type='hierarchy'):
     agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
         hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
         grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-
+    ----------
     Returns
     ----------
     new_ : new column name
     btm : new bottom layer (list)
     labs : all column labels (list)
     """
+    # define new column name
+    # new column is a concatenation of `grp1` and `grp2` values
     new_ = f'{grp1}_{grp2}'
     data[new_] = data.apply(lambda x: f'{x[grp1]}{sep}{x[grp2]}', axis=1)
+    # get lists of group values (including those from `new_`)
     g1s = data[grp1].unique().tolist()
     g2s = data[grp2].unique().tolist()
     ngs = data[new_].unique().tolist()
+    # define bottom level
     btm = {k: [v for v in ngs if k == v.split(sep)[0]] for k in g1s}
     btm = list(itertools.chain.from_iterable(btm.values()))
+    # define labels
+    # if `agg_type` is hierarchy, exclude `g2s` (redundant)
     if agg_type == 'hierarchy':
         labs = ['total'] + g1s + btm
     elif agg_type == 'grouped':
@@ -42,9 +50,9 @@ def get_hierarchy_labels(data, grp1, grp2, sep='_', agg_type='hierarchy'):
     return new_, btm, labs
 
 
-
 def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_type='hierarchy'):
     """
+    ----------
     Parameters
     ----------
     data : pandas dataframe with a date column, two hierarchies, and a value
@@ -57,20 +65,23 @@ def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_
     agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
             hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
             grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-
+    ----------
     Returns
     ----------
     hd : new dataframe with each distinct hierarchy as an individual column, and the dates as the index
     btm : bottom layer (list)
     labs : all column labels (list)
     """
+    # get new column values, bottom-level labels, and full label list 
     new_, btm, labs = get_hierarchy_labels(data, grp1, grp2, sep=sep, agg_type=agg_type)
-    hd = data.pivot(index=date_col, columns=new_, values=val)\
-        .join(
-            data.groupby([date_col, grp2], as_index=False, observed=True)\
-                .agg({val : lambda x: data.loc[x.index][val].sum()})\
-                    .pivot(index=date_col, columns=grp2, values=val)
-            )\
+    # define hierarchal dataframe by joining grouped data
+    # starting data - `new_` values as column names, `date_col` as index
+    # join with data grouped by date and `grp2` (columns are `grp2` values) -> if grouped `agg_type`
+    # then with data grouped by date and `grp1` (columns are `grp1` values)
+    # finally, join with data grouped by date (new column is the total)
+    # reorder columns to match `labs` order
+    if agg_type == 'hierarchy':
+        hd = data.pivot(index=date_col, columns=new_, values=val)\
             .join(
                 data.groupby([date_col, grp1], as_index=False, observed=True)\
                     .agg({val : lambda x: data.loc[x.index][val].sum()})\
@@ -81,11 +92,34 @@ def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_
                             .agg({val : lambda x: data.loc[x.index][val].sum()})\
                                 .rename(columns={val:'total'})
                         )[labs]
-    hd.index = pd.DatetimeIndex(hd.index, freq=hd.index.inferred_freq)
-    return hd, btm, labs
+        hd.index = pd.DatetimeIndex(hd.index, freq=hd.index.inferred_freq)
+        return hd, btm, labs
+    elif agg_type == 'grouped':
+        hd = data.pivot(index=date_col, columns=new_, values=val)\
+            .join(
+                data.groupby([date_col, grp2], as_index=False, observed=True)\
+                    .agg({val : lambda x: data.loc[x.index][val].sum()})\
+                        .pivot(index=date_col, columns=grp2, values=val)
+                )\
+                .join(
+                    data.groupby([date_col, grp1], as_index=False, observed=True)\
+                        .agg({val : lambda x: data.loc[x.index][val].sum()})\
+                            .pivot(index=date_col, columns=grp1, values=val)
+                    )\
+                        .join(
+                            data.groupby(date_col, observed=True)\
+                                .agg({val : lambda x: data.loc[x.index][val].sum()})\
+                                    .rename(columns={val:'total'})
+                            )[labs]
+        hd.index = pd.DatetimeIndex(hd.index, freq=hd.index.inferred_freq)
+        return hd, btm, labs
+    else:
+        raise ValueError('agg_type must be "hierarchy" or "grouped"')
+    
 
 def map_hierarchies(col, sep='_', agg_type='hierarchy'):
     """
+    ----------
     Parameters
     ----------
     col : (zero filled) pandas series (name matches column of the dataframe returned by `get_hierarchal()`)
@@ -94,7 +128,7 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
     agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
             hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
             grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-
+    ----------
     Returns
     ----------
     col : column updated with the value 1 where the category is True, or it falls under a higher category. 
@@ -102,6 +136,8 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
             hierarchy - https://otexts.com/fpp3/reconciliation.html#matrix-notation
             grouped - https://otexts.com/fpp3/hts.html#fig:GroupTree
     """
+    # determine whether to map the both groups, or just group 1 (based on `agg_type`)
+    # set values where the group maps to the column name to 1
     if agg_type == 'hierarchy':
         col.loc[col.name.split(sep)[0]] = 1
         return col
@@ -111,8 +147,12 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
     else:
         raise ValueError('agg_type must be "hierarchy" or "grouped"')
 
+
 def get_S(btm, labs, sep='_', agg_type='hierarchy'):
     """
+    Create sum matrix 
+    (see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree)
+    ----------
     Parameters
     ----------
     btm : bottom layer (list)
@@ -122,11 +162,14 @@ def get_S(btm, labs, sep='_', agg_type='hierarchy'):
     agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
             hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
             grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-
+    ----------
     Returns
     ----------
-    sum matrix : see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree
+    sum matrix 
     """
+    # stack array of ones on top (for the total)
+    # matrix output from `map_hierarchies()` in the middle
+    # identity matrix of bottom values at the bottom
     return np.vstack((
             np.ones(len(btm)), 
             pd.DataFrame(index=labs[1:len(labs)-len(btm)], columns=btm, data=0)\
@@ -136,6 +179,20 @@ def get_S(btm, labs, sep='_', agg_type='hierarchy'):
     
 
 def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
+    """
+    ----------
+    Parameters
+    ----------
+    col : 
+    forecast_idx : 
+    order : 
+    steps_out : 
+    ----------
+    Returns
+    ----------
+    out : 
+    """
+    # 
     mod = ARIMA(col.diff(), order=order, enforce_stationarity=False)
     mod = mod.fit(method_kwargs={'warn_convergence': False})
     if steps_out == 1:
@@ -147,7 +204,22 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
     out = {col.name:{'yhat':yhat, 'training_df':col, 'model':mod}}
     return out
 
+
 def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
+    """
+    ----------
+    Parameters
+    ----------
+    hdf : 
+    order : 
+    steps_out : 
+    period : 
+    ----------
+    Returns
+    ----------
+    mods : 
+    """
+    # 
     if period.lower() in ['month', 'months']:
         if steps_out == 1:
             forecast_idx = hdf.index[-1] + relativedelta(months=1)
@@ -164,7 +236,19 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
     else:
         raise ValueError('Invalid period')
 
+
 def get_forecast_matrix(mods):
+    """
+    ----------
+    Parameters
+    ----------
+    mods : 
+    ----------
+    Returns
+    ----------
+    out : 
+    """
+    # 
     labs = list(mods['columns'].keys())
     for i in range(0, len(labs)):
         if i == 0:
@@ -173,7 +257,21 @@ def get_forecast_matrix(mods):
             out = np.concatenate((out, mods['columns'][labs[i]]['yhat'][:, np.newaxis]), axis=1)
     return out
 
+
 def reconcile(yh, s_matrix, method='ols'):
+    """
+    ----------
+    Parameters
+    ----------
+    yh : 
+    s_matrix : 
+    method : 
+    ----------
+    Returns
+    ----------
+    rec : 
+    """
+    # 
     if method.lower() == 'ols':
         ols = np.dot(np.dot(s_matrix, np.linalg.inv(np.dot(np.transpose(s_matrix), s_matrix))), np.transpose(s_matrix))
         rec = np.array([np.dot(ols, np.transpose(yh[x, :])) for x in range(yh.shape[0])])
