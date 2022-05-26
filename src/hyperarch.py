@@ -69,8 +69,8 @@ def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_
     Returns
     ----------
     hd : new dataframe with each distinct hierarchy as an individual column, and the dates as the index
-    btm : bottom layer (list)
-    labs : all column labels (list)
+    btm : list - bottom layer
+    labs : list - all column labels
     """
     # get new column values, bottom-level labels, and full label list 
     new_, btm, labs = get_hierarchy_labels(data, grp1, grp2, sep=sep, agg_type=agg_type)
@@ -155,8 +155,8 @@ def get_S(btm, labs, sep='_', agg_type='hierarchy'):
     ----------
     Parameters
     ----------
-    btm : bottom layer (list)
-    labs : all column labels (list)
+    btm : list - bottom layer
+    labs : list - all column labels
     sep : a character that is NOT included in any column names (will be used as a 
           separater for the new column)
     agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
@@ -165,7 +165,7 @@ def get_S(btm, labs, sep='_', agg_type='hierarchy'):
     ----------
     Returns
     ----------
-    sum matrix 
+    sum matrix - numpy array 
     """
     # stack array of ones on top (for the total)
     # matrix output from `map_hierarchies()` in the middle
@@ -183,16 +183,16 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
     ----------
     Parameters
     ----------
-    col : 
-    forecast_idx : 
-    order : 
-    steps_out : 
+    col : column from the pandas dataframe output from `get_hierarchal()`
+    forecast_idx : datetime index of forecast period
+    order : order of ARIMA forecasting model
+    steps_out : number of periods in forecast horizon
     ----------
     Returns
     ----------
-    out : 
+    out : dictionary with yhat, training data (col), and the fitted model
     """
-    # 
+    # ARIMA forecast; make data stationary by taking the difference
     mod = ARIMA(col.diff(), order=order, enforce_stationarity=False)
     mod = mod.fit(method_kwargs={'warn_convergence': False})
     if steps_out == 1:
@@ -210,16 +210,16 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
     ----------
     Parameters
     ----------
-    hdf : 
-    order : 
-    steps_out : 
-    period : 
+    hdf : pandas dataframe - output from `get_hierarchal()`
+    order : order of ARIMA forecasting model
+    steps_out : number of periods in forecast horizon
+    period : time period (default months)
     ----------
     Returns
     ----------
-    mods : 
+    mods : dictionary containing fitted models and metadata
     """
-    # 
+    # apply ARIMA to each column n steps out
     if period.lower() in ['month', 'months']:
         if steps_out == 1:
             forecast_idx = hdf.index[-1] + relativedelta(months=1)
@@ -239,16 +239,18 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
 
 def get_forecast_matrix(mods):
     """
+    Get yhat matrix
+    See Hyndman's "Forecasting: Principles and Practice": https://otexts.com/fpp3/reconciliation.html#eq:MinT
     ----------
     Parameters
     ----------
-    mods : 
+    mods : output from `get_models()`
     ----------
     Returns
     ----------
-    out : 
+    out : numpy array - yhat matrix used in reconciliation equation (with sum matrix)
     """
-    # 
+    # Get forecasts as numpy array
     labs = list(mods['columns'].keys())
     for i in range(0, len(labs)):
         if i == 0:
@@ -260,21 +262,42 @@ def get_forecast_matrix(mods):
 
 def reconcile(yh, s_matrix, method='ols'):
     """
+    For a full explanation, see Hyndman's "Forecasting: Principles and Practice": https://otexts.com/fpp3/reconciliation.html
     ----------
     Parameters
     ----------
-    yh : 
-    s_matrix : 
-    method : 
+    yh : numpy array - yhat matrix; This should be of shape (steps out, hdf column count)
+    s_matrix : numpy array - sum matrix
+    method : reconciliation method (default is OLS)
     ----------
     Returns
     ----------
-    rec : 
+    rec : numpy array - reconciled forecasts
     """
-    # 
+    # Reconcile forecasts according to specified method
     if method.lower() == 'ols':
         ols = np.dot(np.dot(s_matrix, np.linalg.inv(np.dot(np.transpose(s_matrix), s_matrix))), np.transpose(s_matrix))
         rec = np.array([np.dot(ols, np.transpose(yh[x, :])) for x in range(yh.shape[0])])
         return rec
     else:
         raise ValueError('Invalid method')
+
+
+def predict_hier(hdf, yh, rec):
+    """
+    ----------
+    Parameters
+    ----------
+    hdf : pandas dataframe - output from `get_hierarchal()`
+    yh : numpy array - yhat matrix
+    rec : numpy array - reconciled forecast matrix
+    ----------
+    Returns
+    ----------
+    hdf_yhat : hdf with appended (original) forecasts
+    hdf_rec : hdf with appended reconciled forecasts
+    """
+    # 
+    hdf_yhat = hdf.copy()
+    hdf_rec = hdf.copy()
+    return hdf_yhat, hdf_rec
