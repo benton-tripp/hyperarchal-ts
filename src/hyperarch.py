@@ -426,4 +426,4 @@ def predict_hier(hdf, yh, rec, labs, forecast_idx):
     return hdf_yhat, hdf_rec
 
 
-### TODO: Wrapper function
+### TODO: Wrapper function OR refactor as classes?
