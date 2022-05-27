@@ -216,7 +216,7 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=Tr
     return out
 
 
-def get_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stationary=True):
+def get_arima_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stationary=True):
     """
     ----------
     Parameters
@@ -258,7 +258,7 @@ def get_forecast_matrix(mods):
     ----------
     Parameters
     ----------
-    mods : output from `get_models()`
+    mods : output from `get_arima_models()`
     ----------
     Returns
     ----------

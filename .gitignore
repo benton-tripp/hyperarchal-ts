@@ -4,6 +4,9 @@ htsf/*
 # Archive
 archive/*
 
+# Examples
+pmdarima_examples/*
+
 # pycache
 src/__pycache__
 
