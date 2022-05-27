@@ -4,6 +4,9 @@ from dateutil.relativedelta import relativedelta
 import itertools
 import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
+import pmdarima as pm
+from pmdarima import model_selection
+from sklearn.metrics import mean_squared_error
 
 
 #---------------------------------------------------------------------
@@ -55,12 +58,12 @@ def get_hierarchy_labels(data, grp1, grp2, sep='_', agg_type='hierarchy'):
     return new_, btm, labs
 
 
-def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_type='hierarchy'):
+def get_hierarchal(dataset, grp1, grp2, date_col='date', val='value', sep='_', agg_type='hierarchy'):
     """
     ----------
     Parameters
     ----------
-    data : pandas dataframe with a date column, two hierarchies, and a value
+    dataset : pandas dataframe with a date column, two hierarchies, and a value
     grp1 : the first (topmost) hierarchal group
     gp2 : the second (bottom) hierarchal group
     date_col : date column
@@ -78,6 +81,7 @@ def get_hierarchal(data, grp1, grp2, date_col='date', val='value', sep='_', agg_
     labs : list - all column labels
     """
     # get new column values, bottom-level labels, and full label list 
+    data = dataset.copy()
     new_, btm, labs = get_hierarchy_labels(data, grp1, grp2, sep=sep, agg_type=agg_type)
     # define hierarchal dataframe by joining grouped data
     # starting data - `new_` values as column names, `date_col` as index
@@ -197,7 +201,30 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=Tr
     return out
 
 
-def get_arima_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stationary=True):
+### TODO: Auto-Arima using pmdarima (Cross-validation included)
+def hier_auto_arima(hdf):
+    train, test = model_selection.train_test_split(data, train_size=90)
+    # SARIMA(p, d, q)(P, D, Q)m
+        # Trend Order
+            # p - autoregression
+            # d - difference
+            # q - MA
+        # Seasonal Order
+            # P - autoregression
+            # D - Difference
+            # Q - MA
+            # m - time steps in seasonal period
+    mod = pm.auto_arima(train, start_p=0, start_q=0, start_P=0, start_Q=0,
+                     max_p=5, max_q=5, max_P=5, max_Q=5, seasonal=True, m=12,
+                     stepwise=True, suppress_warnings=True, D=None, max_D=10,
+                     error_action='ignore')
+
+    preds, conf_int = modl.predict(n_periods=test.shape[0], return_conf_int=True)
+    print("Test RMSE: %.3f" % np.sqrt(mean_squared_error(test, preds)))
+    return mod, preds, conf_int
+
+
+def get_models(hdf, method='auto_arima', steps_out=6, period='months', **kwargs):
     """
     ----------
     Parameters
@@ -213,26 +240,36 @@ def get_arima_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stat
     mods : dictionary containing fitted models and metadata
     """
     # apply ARIMA to each column n steps out
-    if period.lower() in ['month', 'months']:
-        if steps_out == 1:
-            forecast_idx = np.array([hdf.index[-1] + relativedelta(months=1)])
+    if method.lower() == 'arima':
+        if period.lower() in ['month', 'months']:
+            if steps_out == 1:
+                forecast_idx = np.array([hdf.index[-1] + relativedelta(months=1)])
+            else:
+                forecast_idx = pd.date_range(
+                    hdf.index[-1] + relativedelta(months=1), 
+                    hdf.index[-1] + relativedelta(months=steps_out), 
+                    freq=hdf.index.freq)
+            cols_dict = dict()
+            mods = {'steps_out':steps_out, 'period':period, 'index':forecast_idx}
+            hdf.apply(lambda x: cols_dict.update(hier_arima(
+                col=x, 
+                forecast_idx=forecast_idx, 
+                steps_out : steps_out,
+                **{
+                    'order' : 1,0,0), 
+                    'make_stationary' : True,
+                    **kwargs
+                    }
+                ))
+            mods.update({'columns':cols_dict})
+            return mods
         else:
-            forecast_idx = pd.date_range(
-                hdf.index[-1] + relativedelta(months=1), 
-                hdf.index[-1] + relativedelta(months=steps_out), 
-                freq=hdf.index.freq)
-        cols_dict = dict()
-        mods = {'steps_out':steps_out, 'period':period, 'index':forecast_idx}
-        hdf.apply(lambda x: cols_dict.update(hier_arima(
-            col=x, forecast_idx=forecast_idx, order=order, steps_out=steps_out, make_stationary=make_stationary
-            )))
-        mods.update({'columns':cols_dict})
-        return mods
+            raise ValueError('Invalid period')
+    # apply auto_arima to each column n steps out
+    elif method.lower() == 'auto_arima':
+        #stuff
     else:
-        raise ValueError('Invalid period')
-
-
-### TODO: Auto-Arima using pmdarima (Cross-validation included)
+        raise ValueError('Method must either be "arima" or "auto_arima"')
 
 
 #---------------------------------------------------------------------
@@ -277,7 +314,7 @@ def get_forecast_matrix(mods):
     ----------
     Parameters
     ----------
-    mods : output from `get_arima_models()`
+    mods : output from `get_models()`
     ----------
     Returns
     ----------
