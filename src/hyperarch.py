@@ -195,8 +195,9 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
     # ARIMA forecast; make data stationary by taking the difference
     mod = ARIMA(col.diff(), order=order, enforce_stationarity=False)
     mod = mod.fit(method_kwargs={'warn_convergence': False})
+    # predict; undo differencing by taking the cumsum
     if steps_out == 1:
-        yhat = mod.predict(forecast_idx).values + col.iloc[-1]
+        yhat = mod.predict(forecast_idx[0]).values + col.iloc[-1]
     else:
         yhat = mod.predict(start=forecast_idx[0], end=forecast_idx[-1]).values 
         yhat[0] += col.iloc[-1]
@@ -222,7 +223,7 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
     # apply ARIMA to each column n steps out
     if period.lower() in ['month', 'months']:
         if steps_out == 1:
-            forecast_idx = hdf.index[-1] + relativedelta(months=1)
+            forecast_idx = np.array([hdf.index[-1] + relativedelta(months=1)])
         else:
             forecast_idx = pd.date_range(
                 hdf.index[-1] + relativedelta(months=1), 
@@ -283,7 +284,7 @@ def reconcile(yh, s_matrix, method='ols'):
         raise ValueError('Invalid method')
 
 
-def predict_hier(hdf, yh, rec):
+def predict_hier(hdf, yh, rec, labs, forecast_idx):
     """
     ----------
     Parameters
@@ -297,7 +298,13 @@ def predict_hier(hdf, yh, rec):
     hdf_yhat : hdf with appended (original) forecasts
     hdf_rec : hdf with appended reconciled forecasts
     """
-    # 
-    hdf_yhat = hdf.copy()
-    hdf_rec = hdf.copy()
+    # Create additional column flagging forecasted records
+    # Append forecasts to actuals (both original and reconciled)
+    hdf['actual'] = True
+    yh_df = pd.DataFrame(data=yh, columns=labs, index=forecast_idx)
+    yh_df['actual'] = False
+    hdf_yhat = pd.concat([hdf, yh_df], axis=0)
+    rec_df = pd.DataFrame(data=rec, columns=labs, index=forecast_idx)
+    rec_df['actual'] = False
+    hdf_rec = pd.concat([hdf, rec_df], axis=0)
     return hdf_yhat, hdf_rec
