@@ -69,3 +69,5 @@ def plot_single(data, rec_data, col='total'):
     l3, = ax.plot(rec_data.loc[rec_data.pred==True][col], lw=1.5, c='green')
     l3.set_label(f'Reconciled Forecast {col}')
     ax.legend(bbox_to_anchor=(1, 1), loc='upper left', shadow=True, prop={'size': 11})
+
+### TODO: Add plotting of hierarchies by level
