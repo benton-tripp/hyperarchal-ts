@@ -162,7 +162,6 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
 #---------------------------------------------------------------------   
 
 
-# statsmodels ARIMA
 def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=True):
     """
     ----------
@@ -201,27 +200,59 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=Tr
     return out
 
 
-### TODO: Auto-Arima using pmdarima (Cross-validation included)
-def hier_auto_arima(hdf):
-    train, test = model_selection.train_test_split(data, train_size=90)
-    # SARIMA(p, d, q)(P, D, Q)m
-        # Trend Order
-            # p - autoregression
-            # d - difference
-            # q - MA
-        # Seasonal Order
-            # P - autoregression
-            # D - Difference
-            # Q - MA
-            # m - time steps in seasonal period
-    mod = pm.auto_arima(train, start_p=0, start_q=0, start_P=0, start_Q=0,
-                     max_p=5, max_q=5, max_P=5, max_Q=5, seasonal=True, m=12,
-                     stepwise=True, suppress_warnings=True, D=None, max_D=10,
-                     error_action='ignore')
-
-    preds, conf_int = modl.predict(n_periods=test.shape[0], return_conf_int=True)
-    print("Test RMSE: %.3f" % np.sqrt(mean_squared_error(test, preds)))
-    return mod, preds, conf_int
+def hier_auto_arima(col, future=False, horizon=6, verbose=True, dict_out=False, **kwargs):
+    """
+    ----------
+    Parameters
+    ----------
+    col : column from the pandas dataframe output from `get_hierarchal()`
+    future : bool - whether or not to predict future period
+    horizon : int - n steps in future period
+    verbose : bool - whether to print error
+    dict_out : bool - whether the output should be a dictionary format
+    **kwargs : additional parameters for model_selection.train_test_split 
+               and pm.auto_arima
+    ----------
+    Returns
+    ----------
+    out : dictionary with yhat, training data (col), and the fitted model 
+          (OR) if only training/testing, the prediction, C.I., and model
+    """
+    train, test = model_selection.train_test_split(col, **{'train_size': .8, **kwargs})
+    # SARIMA(p, d, q)(P, D, Q)m 
+    mod = pm.auto_arima(
+        train, 
+        **{
+            'start_p' : 0, # p - Trend Order autoregression
+            'start_q' : 0, # q - Trend Order 
+            'start_P' : 0, # P - Seasonal Order autoregression
+            'start_Q' : 0, # Q - Seasonal Order MA
+            'max_p' : 5, 
+            'max_q' : 5, 
+            'max_P' : 3, 
+            'max_Q' : 3, 
+            'max_d' : 3, # d - Trend Order difference
+            'max_D' : 3, # D - Seasonal Order Difference
+            'm' : 12, # m - time steps in seasonal period
+            'seasonal' : True, 
+            'stepwise' : True, 
+            'suppress_warnings' : True, 
+            'error_action' : 'ignore',
+            **kwargs
+            }
+        )
+    test_preds, test_conf_int = mod.predict(n_periods=test.shape[0], return_conf_int=True)
+    if verbose is True:
+        print(f"Test RMSE - {col.name}: %.3f" % np.sqrt(mean_squared_error(test, test_preds)))
+    if future is False:
+        return mod, test_preds, test_conf_int
+    else:
+        preds, conf_int = mod.predict(n_periods=horizon, return_conf_int=True)
+        if dict_out is False:
+            return mod, preds, conf_int
+        else:
+            out = {col.name:{'yhat':preds, 'training_df':col, 'model':mod, 'conf_int':conf_int}}
+            return out
 
 
 def get_models(hdf, method='auto_arima', steps_out=6, period='months', **kwargs):
@@ -239,37 +270,48 @@ def get_models(hdf, method='auto_arima', steps_out=6, period='months', **kwargs)
     ----------
     mods : dictionary containing fitted models and metadata
     """
-    # apply ARIMA to each column n steps out
-    if method.lower() == 'arima':
-        if period.lower() in ['month', 'months']:
-            if steps_out == 1:
-                forecast_idx = np.array([hdf.index[-1] + relativedelta(months=1)])
-            else:
-                forecast_idx = pd.date_range(
-                    hdf.index[-1] + relativedelta(months=1), 
-                    hdf.index[-1] + relativedelta(months=steps_out), 
-                    freq=hdf.index.freq)
-            cols_dict = dict()
-            mods = {'steps_out':steps_out, 'period':period, 'index':forecast_idx}
+    if period.lower() in ['month', 'months']:
+        if steps_out == 1:
+            forecast_idx = np.array([hdf.index[-1] + relativedelta(months=1)])
+        else:
+            forecast_idx = pd.date_range(
+                hdf.index[-1] + relativedelta(months=1), 
+                hdf.index[-1] + relativedelta(months=steps_out), 
+                freq=hdf.index.freq)
+        cols_dict = dict()
+        mods = {'index':forecast_idx}
+        # apply ARIMA to each column n steps out
+        if method.lower() == 'arima':
             hdf.apply(lambda x: cols_dict.update(hier_arima(
                 col=x, 
                 forecast_idx=forecast_idx, 
-                steps_out : steps_out,
+                steps_out=steps_out,
                 **{
-                    'order' : 1,0,0), 
+                    'order' : (1,0,0), 
                     'make_stationary' : True,
                     **kwargs
                     }
-                ))
+                )))
+            mods.update({'columns':cols_dict})
+            return mods
+        # apply auto_arima to each column n steps out
+        elif method.lower() == 'auto_arima':
+            hdf.apply(lambda x: cols_dict.update(hier_auto_arima(
+                col=x, 
+                future=True, 
+                horizon=steps_out, 
+                dict_out=True,
+                **{
+                    'verbose' : True, 
+                    **kwargs
+                }
+            )))
             mods.update({'columns':cols_dict})
             return mods
         else:
-            raise ValueError('Invalid period')
-    # apply auto_arima to each column n steps out
-    elif method.lower() == 'auto_arima':
-        #stuff
+            raise ValueError('Method must either be "arima" or "auto_arima"')
     else:
-        raise ValueError('Method must either be "arima" or "auto_arima"')
+        raise ValueError('Invalid period')
 
 
 #---------------------------------------------------------------------
