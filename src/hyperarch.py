@@ -6,6 +6,11 @@ import numpy as np
 from statsmodels.tsa.arima.model import ARIMA
 
 
+#---------------------------------------------------------------------
+# Data Pre-Processing
+#---------------------------------------------------------------------   
+
+
 def get_hierarchy_labels(data, grp1, grp2, sep='_', agg_type='hierarchy'):
     """
     Get the labels of each category and subcategory (including the total).
@@ -148,36 +153,12 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
         raise ValueError('agg_type must be "hierarchy" or "grouped"')
 
 
-def get_S(btm, labs, sep='_', agg_type='hierarchy'):
-    """
-    Create sum matrix 
-    (see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree)
-    ----------
-    Parameters
-    ----------
-    btm : list - bottom layer
-    labs : list - all column labels
-    sep : a character that is NOT included in any column names (will be used as a 
-          separater for the new column)
-    agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
-            hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
-            grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-    ----------
-    Returns
-    ----------
-    sum matrix - numpy array 
-    """
-    # stack array of ones on top (for the total)
-    # matrix output from `map_hierarchies()` in the middle
-    # identity matrix of bottom values at the bottom
-    return np.vstack((
-            np.ones(len(btm)), 
-            pd.DataFrame(index=labs[1:len(labs)-len(btm)], columns=btm, data=0)\
-                .apply(lambda x: map_hierarchies(x, sep=sep, agg_type=agg_type)).values, 
-            np.identity(len(btm))
-        ))
-    
+#---------------------------------------------------------------------
+# Forecasting Functions
+#---------------------------------------------------------------------   
 
+
+# statsmodels ARIMA
 def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=True):
     """
     ----------
@@ -251,6 +232,44 @@ def get_arima_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stat
         raise ValueError('Invalid period')
 
 
+### TODO: Auto-Arima using pmdarima (Cross-validation included)
+
+
+#---------------------------------------------------------------------
+# Reconciliation
+#---------------------------------------------------------------------   
+
+
+def get_S(btm, labs, sep='_', agg_type='hierarchy'):
+    """
+    Create sum matrix 
+    (see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree)
+    ----------
+    Parameters
+    ----------
+    btm : list - bottom layer
+    labs : list - all column labels
+    sep : a character that is NOT included in any column names (will be used as a 
+          separater for the new column)
+    agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
+            hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
+            grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
+    ----------
+    Returns
+    ----------
+    sum matrix - numpy array 
+    """
+    # stack array of ones on top (for the total)
+    # matrix output from `map_hierarchies()` in the middle
+    # identity matrix of bottom values at the bottom
+    return np.vstack((
+            np.ones(len(btm)), 
+            pd.DataFrame(index=labs[1:len(labs)-len(btm)], columns=btm, data=0)\
+                .apply(lambda x: map_hierarchies(x, sep=sep, agg_type=agg_type)).values, 
+            np.identity(len(btm))
+        ))
+
+
 def get_forecast_matrix(mods):
     """
     Get yhat matrix
@@ -297,6 +316,11 @@ def reconcile(yh, s_matrix, method='ols'):
         raise ValueError('Invalid method')
 
 
+#---------------------------------------------------------------------
+# Output functions & Wrapper
+#---------------------------------------------------------------------   
+
+
 def predict_hier(hdf, yh, rec, labs, forecast_idx):
     """
     ----------
@@ -321,3 +345,6 @@ def predict_hier(hdf, yh, rec, labs, forecast_idx):
     rec_df['actual'] = False
     hdf_rec = pd.concat([hdf, rec_df], axis=0)
     return hdf_yhat, hdf_rec
+
+
+### TODO: Wrapper function
