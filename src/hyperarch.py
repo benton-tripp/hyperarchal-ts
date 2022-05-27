@@ -178,7 +178,7 @@ def get_S(btm, labs, sep='_', agg_type='hierarchy'):
         ))
     
 
-def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
+def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1, make_stationary=True):
     """
     ----------
     Parameters
@@ -187,26 +187,36 @@ def hier_arima(col, forecast_idx, order=(1,1,0), steps_out=1):
     forecast_idx : datetime index of forecast period
     order : order of ARIMA forecasting model
     steps_out : number of periods in forecast horizon
+    make_stationary : bool - difference the column to make data stationary
     ----------
     Returns
     ----------
     out : dictionary with yhat, training data (col), and the fitted model
     """
     # ARIMA forecast; make data stationary by taking the difference
-    mod = ARIMA(col.diff(), order=order, enforce_stationarity=False)
-    mod = mod.fit(method_kwargs={'warn_convergence': False})
-    # predict; undo differencing by taking the cumsum
-    if steps_out == 1:
-        yhat = mod.predict(forecast_idx[0]).values + col.iloc[-1]
+    if make_stationary is True:
+        mod = ARIMA(col.diff(), order=order, enforce_stationarity=False, enforce_invertibility=False)
+        mod = mod.fit(method_kwargs={'warn_convergence': False})
+        # predict; undo differencing by taking the cumsum
+        if steps_out == 1:
+            yhat = mod.predict(forecast_idx[0]).values + col.iloc[-1]
+        else:
+            yhat = mod.predict(start=forecast_idx[0], end=forecast_idx[-1]).values 
+            yhat[0] += col.iloc[-1]
+            yhat = np.cumsum(yhat)
     else:
-        yhat = mod.predict(start=forecast_idx[0], end=forecast_idx[-1]).values 
-        yhat[0] += col.iloc[-1]
-        yhat = np.cumsum(yhat)
+        mod = ARIMA(col, order=order, enforce_stationarity=False, enforce_invertibility=False)
+        mod = mod.fit(method_kwargs={'warn_convergence': False})
+        # predict
+        if steps_out == 1:
+            yhat = mod.predict(forecast_idx[0]).values
+        else:
+            yhat = mod.predict(start=forecast_idx[0], end=forecast_idx[-1]).values 
     out = {col.name:{'yhat':yhat, 'training_df':col, 'model':mod}}
     return out
 
 
-def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
+def get_models(hdf, order=(1,1,0), steps_out=1, period='months', make_stationary=True):
     """
     ----------
     Parameters
@@ -215,6 +225,7 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
     order : order of ARIMA forecasting model
     steps_out : number of periods in forecast horizon
     period : time period (default months)
+    make_stationary : bool - difference the data to make data stationary
     ----------
     Returns
     ----------
@@ -231,7 +242,9 @@ def get_models(hdf, order=(1,1,0), steps_out=1, period='months'):
                 freq=hdf.index.freq)
         cols_dict = dict()
         mods = {'steps_out':steps_out, 'period':period, 'index':forecast_idx}
-        hdf.apply(lambda x: cols_dict.update(hier_arima(col=x, forecast_idx=forecast_idx, order=order, steps_out=steps_out)))
+        hdf.apply(lambda x: cols_dict.update(hier_arima(
+            col=x, forecast_idx=forecast_idx, order=order, steps_out=steps_out, make_stationary=make_stationary
+            )))
         mods.update({'columns':cols_dict})
         return mods
     else:
