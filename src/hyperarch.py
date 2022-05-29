@@ -157,6 +157,57 @@ def map_hierarchies(col, sep='_', agg_type='hierarchy'):
         raise ValueError('agg_type must be "hierarchy" or "grouped"')
 
 
+def get_S(btm, labs, sep='_', agg_type='hierarchy'):
+    """
+    Create sum matrix 
+    (see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree)
+    ----------
+    Parameters
+    ----------
+    btm : list - bottom layer
+    labs : list - all column labels
+    sep : a character that is NOT included in any column names (will be used as a 
+          separater for the new column)
+    agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
+            hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
+            grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
+    ----------
+    Returns
+    ----------
+    sum matrix - numpy array 
+    """
+    # stack array of ones on top (for the total)
+    # matrix output from `map_hierarchies()` in the middle
+    # identity matrix of bottom values at the bottom
+    return np.vstack((
+            np.ones(len(btm)), 
+            pd.DataFrame(index=labs[1:len(labs)-len(btm)], columns=btm, data=0)\
+                .apply(lambda x: map_hierarchies(x, sep=sep, agg_type=agg_type)).values, 
+            np.identity(len(btm))
+        ))
+
+
+def get_forecast_matrix(mods):
+    """
+    Get yhat matrix
+    See Hyndman's "Forecasting: Principles and Practice": https://otexts.com/fpp3/reconciliation.html#eq:MinT
+    ----------
+    Parameters
+    ----------
+    mods : output from `get_models()`
+    ----------
+    Returns
+    ----------
+    out : numpy array - yhat matrix used in reconciliation equation (with sum matrix)
+    """
+    # Get forecasts as numpy array
+    labs = list(mods['columns'].keys())
+    for i in range(0, len(labs)):
+        if i == 0:
+            out = mods['columns'][labs[i]]['yhat'][:, np.newaxis]
+        else:
+            out = np.concatenate((out, mods['columns'][labs[i]]['yhat'][:, np.newaxis]), axis=1)
+    return out
 #---------------------------------------------------------------------
 # Forecasting Functions
 #---------------------------------------------------------------------   
@@ -317,59 +368,6 @@ def get_models(hdf, method='auto_arima', steps_out=6, period='months', **kwargs)
 #---------------------------------------------------------------------
 # Reconciliation
 #---------------------------------------------------------------------   
-
-
-def get_S(btm, labs, sep='_', agg_type='hierarchy'):
-    """
-    Create sum matrix 
-    (see Hyndman's  "Forecasting: Principles and Practice" https://otexts.com/fpp3/hts.html#fig:HierTree)
-    ----------
-    Parameters
-    ----------
-    btm : list - bottom layer
-    labs : list - all column labels
-    sep : a character that is NOT included in any column names (will be used as a 
-          separater for the new column)
-    agg_type : either 'hierarchy' or 'grouped'. See Hyndman's  "Forecasting: Principles and Practice":
-            hierarchy - https://otexts.com/fpp3/hts.html#fig:HierTree
-            grouped - https://otexts.com/fpp3/hts.html#grouped-time-series
-    ----------
-    Returns
-    ----------
-    sum matrix - numpy array 
-    """
-    # stack array of ones on top (for the total)
-    # matrix output from `map_hierarchies()` in the middle
-    # identity matrix of bottom values at the bottom
-    return np.vstack((
-            np.ones(len(btm)), 
-            pd.DataFrame(index=labs[1:len(labs)-len(btm)], columns=btm, data=0)\
-                .apply(lambda x: map_hierarchies(x, sep=sep, agg_type=agg_type)).values, 
-            np.identity(len(btm))
-        ))
-
-
-def get_forecast_matrix(mods):
-    """
-    Get yhat matrix
-    See Hyndman's "Forecasting: Principles and Practice": https://otexts.com/fpp3/reconciliation.html#eq:MinT
-    ----------
-    Parameters
-    ----------
-    mods : output from `get_models()`
-    ----------
-    Returns
-    ----------
-    out : numpy array - yhat matrix used in reconciliation equation (with sum matrix)
-    """
-    # Get forecasts as numpy array
-    labs = list(mods['columns'].keys())
-    for i in range(0, len(labs)):
-        if i == 0:
-            out = mods['columns'][labs[i]]['yhat'][:, np.newaxis]
-        else:
-            out = np.concatenate((out, mods['columns'][labs[i]]['yhat'][:, np.newaxis]), axis=1)
-    return out
 
 
 def reconcile(yh, s_matrix, method='ols'):
