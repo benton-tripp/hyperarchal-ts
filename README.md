@@ -1,2 +1,2 @@
 # hyperarchal-ts
-Hierarchal time series forecasting and reconciliaton in Python
+Hierarchical time series forecasting and reconciliaton in Python

@@ -19690,13 +19690,13 @@ all of MD as it is not optimized for dense, information rich UIs.
         <div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
           <h1 id="Forecast-Reconciliation-in-Python">Forecast Reconciliation in Python<a class="anchor-link"
               href="#Forecast-Reconciliation-in-Python">&#182;</a></h1>
-          <p>Reconcile hierarchal forecasts into coherent forecasts using Python.</p>
+          <p>Reconcile hierarchical forecasts into coherent forecasts using Python.</p>
           <h2 id="Introduction">Introduction<a class="anchor-link" href="#Introduction">&#182;</a></h2>
           <p>In my experience, it is somewhat unusual to work with real time-series data that does not have underlying
             "levels". For example, consider the data that might be produced via transactions at a grocery store.
             Transactions can be described at an individual product level, a shopper level, or at a store level. The
             products purchased might also be categorized into a specific type of product, and those categories might in
-            turn fall into broader categories. For a business owner, this complex hierarchal structure can complicate
+            turn fall into broader categories. For a business owner, this complex hierarchical structure can complicate
             making accurate and unbiased forecasts for their business. A data-driven person will most likely produce
             forecasts for each of the different levels, but they don't always add up. This is where reconciliation
             becomes necessary.</p>
@@ -19704,7 +19704,7 @@ all of MD as it is not optimized for dense, information rich UIs.
               href="https://otexts.com/fpp3/"><em>Forecasting: Principles and Practice</em></a> by Rob J. Hyndman and
             George Athanasopoulos - an excellent resource for forecasting in general and completely free online. I
             highly recommend that you spend some time reading Hyndman's <a
-              href="https://otexts.com/fpp3/hierarchical.html">more detailed explanation</a> of reconciling hierarchal
+              href="https://otexts.com/fpp3/hierarchical.html">more detailed explanation</a> of reconciling hierarchical
             and grouped forecasts at some point. It is not my intention here to replace this book, although I still
             intend to give a comprehensive explanation of forecasting reconciliation. My intention in writing this
             blog-post is to provide whomever is reading this with the background needed to develop their own forecast
@@ -19714,12 +19714,12 @@ all of MD as it is not optimized for dense, information rich UIs.
             packages available, I have found that staring at a mathematical formula in a book or applying some
             pre-defined function that somebody else created are not the best ways to gain a firm understanding of what
             is actually happening. Hopefully by sharing some short explanations of how one might go about writing their
-            own Python code to reconcile hierarchal forecasts, I can also provide some additional insight that might not
+            own Python code to reconcile hierarchical forecasts, I can also provide some additional insight that might not
             be attained otherwise.</p>
-          <h2 id="Hierarchal-Time-Series">Hierarchal Time Series<a class="anchor-link"
-              href="#Hierarchal-Time-Series">&#182;</a></h2>
-          <p>To begin, I will give a brief introduction to the differences between hierarchal and grouped time series
-            (no, they are not quite the same thing). A time series is considered <em>hierarchal</em>
+          <h2 id="Hierarchical-Time-Series">Hierarchical Time Series<a class="anchor-link"
+              href="#Hierarchical-Time-Series">&#182;</a></h2>
+          <p>To begin, I will give a brief introduction to the differences between hierarchical and grouped time series
+            (no, they are not quite the same thing). A time series is considered <em>hierarchical</em>
             when lower levels withing the hierarchy only fall under one domain. For example consider the following
             hierarchy tree:</p>
 
@@ -19771,7 +19771,7 @@ all of MD as it is not optimized for dense, information rich UIs.
         <div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
           <p><code>Sub-Category 1</code> falls exclusively under <code>Category 1</code>, <code>Sub-Category 4</code>
             falls exlusively under <code>Sub-Category 2</code>, etc. This <em>exclusivity</em> is what defines a
-            hierarchal time series. It is also important to note that mathematically, each of the sub-categories should
+            hierarchical time series. It is also important to note that mathematically, each of the sub-categories should
             add up to the category above them, and <code>Total</code> is the total sum of each of the bottom-level
             categories. The mathematical expression looks like this:</p>
           <p><em>T</em> = <em>C1</em> + <em>C2</em> = <em>SC1</em> + <em>SC2</em> + <em>SC3</em> + <em>SC4</em> +
@@ -19884,7 +19884,7 @@ all of MD as it is not optimized for dense, information rich UIs.
           <p>This complexity of multiple arangements of the hierarchy groups means that the original formulas used are
             no longer valid. Hyndman <a href="https://otexts.com/fpp3/hts.html#grouped-time-series">describes</a> this
             structural concept as <em>"not naturally disaggregat[ing] in a unique hierarchical manner."</em></p>
-          <p>The difference between hierarchal and grouped time series is important to understand, because the summing
+          <p>The difference between hierarchical and grouped time series is important to understand, because the summing
             matrix (explained briefly in the next section) is dependent on the structure of the time series.</p>
 
         </div>
@@ -19903,15 +19903,15 @@ all of MD as it is not optimized for dense, information rich UIs.
               href="#Building-Blocks-of-Coherent-Forecasts">&#182;</a></h2>
           <p>Coherent - or <em>reconciled</em> - forecasts are constructed from a few key components:</p>
           <p><strong>Base Forecasts:</strong> <br>
-            Forecasts at each hierarchal level represented as an <em>m</em> x <em>n</em> matrix (<em>m</em> rows and
-            <em>n</em> columns), where the columns of the matrix represent the hierarchal levels of the data and the
+            Forecasts at each hierarchical level represented as an <em>m</em> x <em>n</em> matrix (<em>m</em> rows and
+            <em>n</em> columns), where the columns of the matrix represent the hierarchical levels of the data and the
             rows represent each time period of the forecast horizon.</p>
           <p><strong>Summing matrix:</strong> <br>
-            The summing matrix describes the hierarchal/grouped structure of the data. For hierarchal summing matrices,
+            The summing matrix describes the hierarchical/grouped structure of the data. For hierarchical summing matrices,
             the number of columns matches the number of unique categories on the bottom level. The number of rows is
             determined by the total number of unique categories across all levels. The values of the summing matrix are
             binary values that represent which bottom-level (column) categories map to each of the hierarchies across
-            all levels. Consider the example shared previously of hierarchal data with two categories and five
+            all levels. Consider the example shared previously of hierarchical data with two categories and five
             sub-categories. The summing matrix would look like the following:</p>
 
         </div>
@@ -20231,7 +20231,7 @@ all of MD as it is not optimized for dense, information rich UIs.
           <p><strong>Mapping Matrix:</strong> <br>
             The key componenent of forecast reconciliation is the mapping matrix. This matrix varies depending on the
             reconciliation method used, but the principle remains the same. When you multiply the mapping matrix with
-            the summing and base forecast matrices (for either hierarchal or grouped time series), the result is a set
+            the summing and base forecast matrices (for either hierarchical or grouped time series), the result is a set
             of coherent forecasts. The challenge then is finding an "optimal" mapping matrix that can be used to
             reconcile the forecasts with the least amount of variance.</p>
           <h2 id="Reconciliation-Methods">Reconciliation Methods<a class="anchor-link"
@@ -20273,7 +20273,7 @@ all of MD as it is not optimized for dense, information rich UIs.
             training/test sets, generating forecasts, looking at accuracy metrics, etc.). My intention is to demonstrate
             how one might go about programming their own reconciliation algorithm, so I am going to be working with a
             sample dataset with pre-existing forecasts. <br></p>
-          <p>Below are plots of each of the hierarchal levels in the sample dataset:</p>
+          <p>Below are plots of each of the hierarchical levels in the sample dataset:</p>
 
         </div>
       </div>
@@ -20356,7 +20356,7 @@ jp-needs-light-background
         </div>
         <div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
           <p>The first steps in reconciling these forecasts are to define the Base Forecast and Summing Matrices. In
-            order to do this, we need to define the bottom/middle/top levels of the hierarchal structure. I have found
+            order to do this, we need to define the bottom/middle/top levels of the hierarchical structure. I have found
             that having the data in the following format makes this process pretty simple to do:</p>
 
         </div>
@@ -20375,7 +20375,7 @@ jp-needs-light-background
               <pre><span></span><span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
 
 <span class="c1"># read data</span>
-<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;../data/hierarchal_data.csv&#39;</span><span class="p">)</span>
+<span class="n">df</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="s1">&#39;../data/hierarchical_data.csv&#39;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="s1">&#39;Original dataset:&#39;</span><span class="p">)</span>
 <span class="n">display</span><span class="p">(</span><span class="n">df</span><span class="p">)</span>
 </pre>
