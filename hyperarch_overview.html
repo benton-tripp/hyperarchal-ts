@@ -19710,7 +19710,7 @@ all of MD as it is not optimized for dense, information rich UIs.
             blog-post is to provide whomever is reading this with the background needed to develop their own forecast
             reconciliation code. I have found that the existing tools I have used in the past are either not
             consistently maintained, or they are not (in my opinion) at a stage in their development where they can be
-            considered reliable in a production environement. But even if you do use one of the existing reconciliation
+            considered reliable in a production environment. But even if you do use one of the existing reconciliation
             packages available, I have found that staring at a mathematical formula in a book or applying some
             pre-defined function that somebody else created are not the best ways to gain a firm understanding of what
             is actually happening. Hopefully by sharing some short explanations of how one might go about writing their
@@ -19720,7 +19720,7 @@ all of MD as it is not optimized for dense, information rich UIs.
               href="#Hierarchical-Time-Series">&#182;</a></h2>
           <p>To begin, I will give a brief introduction to the differences between hierarchical and grouped time series
             (no, they are not quite the same thing). A time series is considered <em>hierarchical</em>
-            when lower levels withing the hierarchy only fall under one domain. For example consider the following
+            when lower levels within the hierarchy only fall under one domain. For example consider the following
             hierarchy tree:</p>
 
         </div>
@@ -19881,7 +19881,7 @@ all of MD as it is not optimized for dense, information rich UIs.
         <div class="jp-InputPrompt jp-InputArea-prompt">
         </div>
         <div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
-          <p>This complexity of multiple arangements of the hierarchy groups means that the original formulas used are
+          <p>This complexity of multiple arrangements of the hierarchy groups means that the original formulas used are
             no longer valid. Hyndman <a href="https://otexts.com/fpp3/hts.html#grouped-time-series">describes</a> this
             structural concept as <em>"not naturally disaggregat[ing] in a unique hierarchical manner."</em></p>
           <p>The difference between hierarchical and grouped time series is important to understand, because the summing
@@ -20229,7 +20229,7 @@ all of MD as it is not optimized for dense, information rich UIs.
         </div>
         <div class="jp-RenderedHTMLCommon jp-RenderedMarkdown jp-MarkdownOutput " data-mime-type="text/markdown">
           <p><strong>Mapping Matrix:</strong> <br>
-            The key componenent of forecast reconciliation is the mapping matrix. This matrix varies depending on the
+            The key component of forecast reconciliation is the mapping matrix. This matrix varies depending on the
             reconciliation method used, but the principle remains the same. When you multiply the mapping matrix with
             the summing and base forecast matrices (for either hierarchical or grouped time series), the result is a set
             of coherent forecasts. The challenge then is finding an "optimal" mapping matrix that can be used to
@@ -20253,7 +20253,7 @@ all of MD as it is not optimized for dense, information rich UIs.
           <ul>
             <li>Ordinary least squares (OLS)</li>
             <li>Weighted least squares (WLS) with variance scaling</li>
-            <li>WLS with structrual scaling</li>
+            <li>WLS with structural scaling</li>
           </ul>
           <p>For a more rigorous explanation of the different minimum trace methods - along with a few additional
             approaches - feel free to check out <a href="https://robjhyndman.com/papers/mint.pdf">this</a> paper.</p>
